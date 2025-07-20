@@ -1,0 +1,19 @@
+{
+  "background": "#282A36",
+  "default_text": "#BFC7D5",
+  "cursor": "#FFFFFF",
+  "syntax": {
+    "value": "#F78C6C",
+    "resource": "#FF5874",
+    "keyword": "#C792EA",
+    "builtin": "#82AAFF",
+    "globalvar": "#A3CCAF",
+    "enum_name": "#82AAFF",
+    "enum_entry": "#FF5874",
+    "macro": "#FF5874",
+    "script": "#82AAFF",
+    "function": "#FFCB6B",
+    "string": "#C3E88D",
+    "comment": "#697098"
+  }
+}

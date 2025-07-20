@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import re
 import os
+import json
 
 def plot_code(text_widget, gmfile):
     # Regex-based simple highlighter
@@ -201,19 +202,18 @@ def launch(_project_name, files, resources, scripts, enum_names, enum_entries, m
 
     # Text widget config
     text_widget.config(font=("Consolas", 10))
-    text_widget.config(bg="#282A36", fg="#BFC7D5", insertbackground="white")
-    text_widget.tag_config("value", foreground="#F78C6C")
-    text_widget.tag_config("resource", foreground="#FF5874")
-    text_widget.tag_config("keyword", foreground="#C792EA")
-    text_widget.tag_config("builtin", foreground="#82AAFF")
-    text_widget.tag_config("globalvar", foreground="#A3CCAF")
-    text_widget.tag_config("enum_name", foreground="#82AAFF")
-    text_widget.tag_config("enum_entry", foreground="#FF5874")
-    text_widget.tag_config("macro", foreground="#FF5874")
-    text_widget.tag_config("script", foreground="#82AAFF")
-    text_widget.tag_config("function", foreground="#FFCB6B")
-    text_widget.tag_config("string", foreground="#C3E88D")
-    text_widget.tag_config("comment", foreground="#697098")
+    # Load color config from JSON
+    with open("styles.json", "r") as f:
+        colors = json.load(f)
+
+    text_widget.config(
+        bg=colors["background"], 
+        fg=colors["default_text"], 
+        insertbackground=colors["cursor"]
+    )
+
+    for tag, color in colors["tags"].items():
+        text_widget.tag_config(tag, foreground=color)
 
     def show_content(ax, path=""):
         d = files

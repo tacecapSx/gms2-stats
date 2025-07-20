@@ -203,7 +203,7 @@ def launch(_project_name, files, resources, scripts, enum_names, enum_entries, m
     # Text widget config
     text_widget.config(font=("Consolas", 10))
     # Load color config from JSON
-    with open("styles.json", "r") as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "styles.json"), "r") as f:
         colors = json.load(f)
 
     text_widget.config(
@@ -212,7 +212,7 @@ def launch(_project_name, files, resources, scripts, enum_names, enum_entries, m
         insertbackground=colors["cursor"]
     )
 
-    for tag, color in colors["tags"].items():
+    for tag, color in colors["syntax"].items():
         text_widget.tag_config(tag, foreground=color)
 
     def show_content(ax, path=""):

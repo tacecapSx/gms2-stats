@@ -1,10 +1,31 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
+from tkinter import messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import re
 import os
 import json
+import _gms2_stats_io
+
+class SyntaxInfo:
+    def __init__(self, resources, scripts, enum_names, enum_entries, macros, globalvars):
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "builtins.txt"), 'r') as f:
+            self.builtins = [line.rstrip('\n') for line in f.readlines()]
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "functions.txt"), 'r') as f:
+            self.functions = [line.rstrip('\n') for line in f.readlines()]
+        
+        self.resources = resources
+        self.scripts = scripts
+        self.enum_names = enum_names
+        self.enum_entries = enum_entries
+        self.macros = macros
+        self.globalvars = globalvars
+
+PROJECT_NAME = "No project"
+FILES = {}
+SYNTAX = None
 
 def plot_code(text_widget, gmfile):
     # Regex-based simple highlighter
@@ -16,43 +37,30 @@ def plot_code(text_widget, gmfile):
 
         code = text_widget.get("1.0", tk.END)
 
-        global FUNCTIONS
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, FUNCTIONS)) + r")\b", code):
-            apply_tag("function", match)
-        
-        global BUILTINS
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, BUILTINS)) + r")\b", code):
-            apply_tag("builtin", match)
+        global SYNTAX
 
-        global RESOURCES
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, RESOURCES)) + r")\b", code):
-            apply_tag("resource", match)
+        syntax_map = {
+            "function": SYNTAX.functions,
+            "builtin": SYNTAX.builtins,
+            "resource": SYNTAX.resources,
+            "script": SYNTAX.scripts,
+            "enum_name": SYNTAX.enum_names,
+            "enum_entry": SYNTAX.enum_entries,
+            "macro": SYNTAX.macros,
+            "globalvar": SYNTAX.globalvars
+        }
 
-        global SCRIPTS
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, SCRIPTS)) + r")\b", code):
-            apply_tag("script", match)
-        
-        global ENUM_NAMES
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, ENUM_NAMES)) + r")\b", code):
-            apply_tag("enum_name", match)
-        
-        global ENUM_ENTRIES
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, ENUM_ENTRIES)) + r")\b", code):
-            apply_tag("enum_entry", match)
-        
-        global MACROS
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, MACROS)) + r")\b", code):
-            apply_tag("macro", match)
-
-        global GLOBALVARS
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, GLOBALVARS)) + r")\b", code):
-            apply_tag("globalvar", match)
+        for tag_name, syntax_words in syntax_map.items():
+            if syntax_words:  # skip empty lists to avoid pointless regex
+                pattern = r"\b(" + "|".join(map(re.escape, syntax_words)) + r")\b"
+                for match in re.finditer(pattern, code):
+                    apply_tag(tag_name, match)
 
         # Keywords
         keywords = [
             "var", "globalvar",
             "enum",
-            "discard", "attribute", "varying", "uniform", "const", "in", "out", "inout"
+            "discard", "attribute", "varying", "uniform", "const", "in", "out", "inout",
             "float", "int", "void", "bool",
             "lowp", "mediump", "highp", "precision", "invariant",
             "mat2", "mat3", "mat4",
@@ -60,23 +68,26 @@ def plot_code(text_widget, gmfile):
             "ivec2", "ivec3", "ivec4",
             "bvec2", "bvec3", "bvec4",
             "sampler2D", "samplerCube", "struct",
-            "function", "break", "continue", "return", "do", "if", "else", "for", "while", "until", "with", "try", "catch", "new", "and", "or", "not", "delete"
+            "function", "break", "continue", "return", "do", "if", "else", "for", "while", "switch", "case", "default", "until", "with", "try", "catch", "new", "and", "or", "not", "delete"
         ]
 
         for match in re.finditer(r"\b(" + "|".join(map(re.escape, keywords)) + r")\b", code):
             apply_tag("keyword", match)
         
+        # Curly brackets
         for match in re.finditer(r"(\{|\})", code):
             apply_tag("keyword", match)
         
+        # Macros with # symbol
         for match in re.finditer(r"(\#macro)\b", code):
             apply_tag("keyword", match)
 
-        for match in re.finditer(r"(?:0x[0-9a-fA-F]+|\$[0-9a-fA-F]+|#[0-9a-fA-F]+|b[0-1]+|\d+\.?\d*|\.\d+)\b", code):
+        # Values
+        for match in re.finditer(r"(?<![A-Za-z_])(0x[0-9a-fA-F]+|\$[0-9a-fA-F]+|#[0-9a-fA-F]+|b[01]+|\d+\.?\d*|\.\d+)\b", code):
             apply_tag("value", match)
 
         # Strings
-        for match in re.finditer(r"(\".*?\"|\'.*?\')", code):
+        for match in re.finditer(r'"(\\.|[^"\\])*"', code):
             apply_tag("string", match)
 
         # Comments
@@ -115,9 +126,9 @@ def plot_dict(ax, d, path=""):
 
     ax.pie(values, labels=labels, autopct=lambda p: '{:.0f}\n({:.1f}%)'.format(p * total / 100, p) if p > 1 else '', startangle=140)
 
-    global project_name
+    global PROJECT_NAME
 
-    ax.set_title(f"{project_name}{('/' if path!='' else '') + path}\nTotal lines: {total}")
+    ax.set_title(f"{PROJECT_NAME}{('/' if path!='' else '') + path}\nTotal lines: {total}")
 
     ax.axis('equal')
 
@@ -132,31 +143,26 @@ def populate_tree(tree, parent, dictionary):
         else:
             tree.insert(parent, 'end', text=key)
 
-def launch(_project_name, files, resources, scripts, enum_names, enum_entries, macros, globalvars):
-    global project_name
-    project_name = _project_name
+def update_app(project_name, files, syntax_info):
+    global SYNTAX
+    SYNTAX = SyntaxInfo(*syntax_info)
     
-    global BUILTINS
-    global FUNCTIONS
-    global RESOURCES
-    global SCRIPTS
-    global ENUM_NAMES
-    global ENUM_ENTRIES
-    global MACROS
-    global GLOBALVARS
+    global PROJECT_NAME
+    global FILES
+    PROJECT_NAME = project_name
+    FILES = files
 
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "builtins.txt"), 'r') as f:
-        BUILTINS = [line.rstrip('\n') for line in f.readlines()]
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "functions.txt"), 'r') as f:
-        FUNCTIONS = [line.rstrip('\n') for line in f.readlines()]
-    
-    RESOURCES = resources
-    SCRIPTS = scripts
-    ENUM_NAMES = enum_names
-    ENUM_ENTRIES = enum_entries
-    MACROS = macros
-    GLOBALVARS = globalvars
+    # Update Treeview
+    TREE.heading("#0", text=PROJECT_NAME)
 
+    # Clear tree
+    for row in TREE.get_children():
+        TREE.delete(row)
+
+    # Repopulate
+    populate_tree(TREE, '', FILES)
+
+def launch():
     fig, ax = plt.subplots(figsize=(5, 4), dpi=100)
 
     # Create main application window
@@ -164,16 +170,47 @@ def launch(_project_name, files, resources, scripts, enum_names, enum_entries, m
     root.title("gms2_stats")
     root.geometry("960x540")
 
+    # Set up the menu bar
+    menu_bar = tk.Menu(root)
+
+    # File menu
+    def open_file():
+        file_path = filedialog.askopenfilename(
+            title="Choose GameMaker Studio 2 Project",
+            filetypes=[("GameMaker Studio 2 Project File", "*.yyp")]
+        )
+        if file_path:
+            result = _gms2_stats_io.load_file(file_path)
+
+            if result.ok():
+                project_name, files, *syntax_info = result.info
+                update_app(project_name, files, syntax_info)
+                show_content(ax)
+            else:
+                messagebox.showerror("Error", result.error)
+
+    file_menu = tk.Menu(menu_bar, tearoff=0)
+    file_menu.add_command(label="Open", command=open_file)
+    file_menu.add_separator()
+    file_menu.add_command(label="Exit", command=root.quit)
+
+    # Add the File menu to the menu bar
+    menu_bar.add_cascade(label="File", menu=file_menu)
+
+    # Add the menu bar to the root window
+    root.config(menu=menu_bar)
+
     # Create a PanedWindow to split the left (tree) and right (pie chart) sections
     paned_window = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
     paned_window.pack(fill=tk.BOTH, expand=True)
 
     # Left pane: Treeview widget for folder structure
     left_pane = ttk.Frame(paned_window)
-    tree = ttk.Treeview(left_pane)
-    tree.heading("#0", text=project_name, anchor="w", command=lambda: on_tree_heading_click())
-    populate_tree(tree, '', files)
-    tree.pack(fill=tk.BOTH, expand=True)
+    
+    global TREE
+    TREE = ttk.Treeview(left_pane)
+    TREE.heading("#0", text=PROJECT_NAME, anchor="w", command=lambda: on_tree_heading_click())
+    TREE.pack(fill=tk.BOTH, expand=True)
     paned_window.add(left_pane, weight=1)
 
     # Right pane: will show either chart OR text
@@ -197,7 +234,6 @@ def launch(_project_name, files, resources, scripts, enum_names, enum_entries, m
     text_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
 
     text_widget = tk.Text(text_frame, wrap=tk.WORD)
-    text_widget.insert(tk.END, "Here's your juicy data or code output.\nAll selectable!")
     text_widget.pack(fill=tk.BOTH, expand=True)
 
     # Text widget config
@@ -216,33 +252,43 @@ def launch(_project_name, files, resources, scripts, enum_names, enum_entries, m
         text_widget.tag_config(tag, foreground=color)
 
     def show_content(ax, path=""):
-        d = files
-        
-        if path != "":
-            for f in path.split("/"):
-                try:
-                    d = d[f]
-                except KeyError:
-                    print(f'ERROR: Path "{path}" does not exist. Can\'t show plot.')
-                    return
-        
-        if isinstance(d, dict):
-            plot_dict(ax, d, path)
+        if not FILES: # No file loaded
+            ax.clear()
+
+            ax.text(0.5, 0.5, "No GameMaker Studio 2 Project loaded yet!", ha='center', va='center', transform=ax.transAxes)
+            ax.axis('off')
 
             canvas.draw()
 
             chart_frame.lift()
         else:
-            plot_code(text_widget, d)
+            d = FILES
+            
+            if path != "":
+                for f in path.split("/"):
+                    try:
+                        d = d[f]
+                    except KeyError:
+                        print(f'ERROR: Path "{path}" does not exist. Can\'t show plot.')
+                        return
+            
+            if isinstance(d, dict):
+                plot_dict(ax, d, path)
 
-            text_frame.lift()
+                canvas.draw()
+
+                chart_frame.lift()
+            else:
+                plot_code(text_widget, d)
+
+                text_frame.lift()
     
     # Function to get the full path of the selected item
     def get_full_path(item_id):
         path = []
         while item_id:  # Traverse up the tree using the parent() method
-            path.append(tree.item(item_id, 'text'))
-            item_id = tree.parent(item_id)
+            path.append(TREE.item(item_id, 'text'))
+            item_id = TREE.parent(item_id)
         return "/".join(reversed(path))  # Reverse the list to get root to leaf order
 
     def on_tree_heading_click():
@@ -250,7 +296,7 @@ def launch(_project_name, files, resources, scripts, enum_names, enum_entries, m
 
     def on_item_selected(event):
         # Get the selected item
-        selected_item = tree.selection()[0]  # Get the first (and only) item from the selection
+        selected_item = TREE.selection()[0]  # Get the first (and only) item from the selection
         # Retrieve the item's text (the folder or file name)
         full_path = get_full_path(selected_item)
         show_content(ax,full_path)
@@ -264,7 +310,7 @@ def launch(_project_name, files, resources, scripts, enum_names, enum_entries, m
     root.protocol("WM_DELETE_WINDOW", on_closing)
 
     # Bind the <<TreeviewSelect>> event to the on_item_selected function
-    tree.bind("<<TreeviewSelect>>", on_item_selected)
+    TREE.bind("<<TreeviewSelect>>", on_item_selected)
 
     show_content(ax)
 

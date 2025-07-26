@@ -12,8 +12,10 @@ Also check that **tkinter** is installed correctly.
 ## Running
 To launch the program:
 ```
-python3 gms2_stats.py <GameMaker Project File>.yyp
+python3 gms2_stats.py
 ```
+
+Or, use the release executable `gms2_stats.exe`.
 
 ## Customization
 You can freely edit `styles.json` to set up your own syntax highlighting colours for code display.

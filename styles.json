@@ -8,6 +8,7 @@
     "keyword": "#C792EA",
     "builtin": "#82AAFF",
     "globalvar": "#A3CCAF",
+    "localvar": "#89DDFF",
     "enum_name": "#82AAFF",
     "enum_entry": "#FF5874",
     "macro": "#FF5874",

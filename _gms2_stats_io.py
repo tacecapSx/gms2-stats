@@ -1,9 +1,7 @@
 import os
 import json
 import re
-import argparse
-import _gms2_stats_viz
-import _gms2_stats_io
+import sys
 
 class GMFile:
     def __init__(self, content, line_count):
@@ -20,6 +18,15 @@ class LoadResult:
     
     def ok(self):
         return self.error is None
+
+def local_resource_path(relative_path):
+    if getattr(sys, 'frozen', False):
+        # Running as a bundled exe
+        exe = sys.executable
+    else:
+        # Running in dev mode
+        exe = os.path.abspath(__file__)
+    return os.path.join(os.path.dirname(exe), relative_path)
 
 def load(filename):
     def remove_trailing_commas(json_str):
@@ -90,8 +97,11 @@ def load(filename):
         if os.path.exists(p):
             resources.update(os.listdir(p))
 
-    for roomdir in os.listdir(os.path.join(project_dir, "rooms")):
-        with open(f"{os.path.join(os.path.join(os.path.join(project_dir, 'rooms'), roomdir), roomdir)}.yy", 'r') as f:
+    # Rooms
+    roomdir = os.path.join(project_dir, 'rooms')
+
+    for roomname in os.listdir(roomdir):
+        with open(f"{os.path.join(os.path.join(roomdir, roomname), roomname)}.yy", 'r') as f:
             j = json.loads(remove_trailing_commas(f.read()))
 
             for inst in j["instanceCreationOrder"]:

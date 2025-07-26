@@ -1,4 +1,4 @@
-import _gms2_stats_viz
+from _gms2_stats_viz import launch
 
 if __name__ == "__main__":
-    _gms2_stats_viz.launch()
+    launch()

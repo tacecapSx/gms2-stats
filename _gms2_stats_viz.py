@@ -5,15 +5,15 @@ from tkinter import messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import re
-import os
 import json
-import _gms2_stats_io
+from _gms2_stats_io import local_resource_path
+from _gms2_stats_io import load_file
 
 class SyntaxInfo:
     def __init__(self, resources, scripts, enum_names, enum_entries, macros, globalvars):
-        with open(_gms2_stats_io.local_resource_path("builtins.txt"), 'r') as f:
+        with open(local_resource_path("builtins.txt"), 'r') as f:
             self.builtins = [line.rstrip('\n') for line in f.readlines()]
-        with open(_gms2_stats_io.local_resource_path("functions.txt"), 'r') as f:
+        with open(local_resource_path("functions.txt"), 'r') as f:
             self.functions = [line.rstrip('\n') for line in f.readlines()]
         
         self.resources = resources
@@ -23,6 +23,7 @@ class SyntaxInfo:
         self.macros = macros
         self.globalvars = globalvars
 
+PROJECT_FILE = ""
 PROJECT_NAME = "No project"
 FILES = {}
 SYNTAX = None
@@ -90,8 +91,12 @@ def plot_code(text_widget, gmfile):
         for match in re.finditer(r'"(\\.|[^"\\])*"', code):
             apply_tag("string", match)
 
-        # Comments
+        # Single-line comments
         for match in re.finditer(r"//.*", code):
+            apply_tag("comment", match)
+
+        # Multi-line comments
+        for match in re.finditer(r"/\*[\s\S]*?\*/", code):
             apply_tag("comment", match)
 
     text_widget.delete("1.0", tk.END)
@@ -180,7 +185,25 @@ def launch():
             filetypes=[("GameMaker Studio 2 Project File", "*.yyp")]
         )
         if file_path:
-            result = _gms2_stats_io.load_file(file_path)
+            result = load_file(file_path)
+
+            if result.ok():
+                global PROJECT_FILE
+                PROJECT_FILE = file_path
+
+                project_name, files, *syntax_info = result.info
+                update_app(project_name, files, syntax_info)
+                show_content(ax)
+            else:
+                messagebox.showerror("Error", result.error)
+
+    def reload_file():
+        global PROJECT_FILE
+
+        if PROJECT_FILE == "":
+            messagebox.showinfo("Info", "No project loaded")
+        else:
+            result = load_file(PROJECT_FILE)
 
             if result.ok():
                 project_name, files, *syntax_info = result.info
@@ -190,15 +213,20 @@ def launch():
                 messagebox.showerror("Error", result.error)
 
     file_menu = tk.Menu(menu_bar, tearoff=0)
-    file_menu.add_command(label="Open", command=open_file)
+    file_menu.add_command(label="Open", command=open_file, accelerator="Ctrl+O")
+    file_menu.add_command(label="Reload", command=reload_file, accelerator="Ctrl+R")
     file_menu.add_separator()
-    file_menu.add_command(label="Exit", command=root.quit)
+    file_menu.add_command(label="Exit", command=root.quit, accelerator="Alt+F4")
 
     # Add the File menu to the menu bar
     menu_bar.add_cascade(label="File", menu=file_menu)
 
     # Add the menu bar to the root window
     root.config(menu=menu_bar)
+
+    # Bind keyboard shortcuts
+    root.bind("<Control-o>", lambda event: open_file())
+    root.bind("<Control-r>", lambda event: reload_file())
 
     # Create a PanedWindow to split the left (tree) and right (pie chart) sections
     paned_window = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
@@ -239,7 +267,7 @@ def launch():
     # Text widget config
     text_widget.config(font=("Consolas", 10))
     # Load color config from JSON
-    with open(_gms2_stats_io.local_resource_path("styles.json"), "r") as f:
+    with open(local_resource_path("styles.json"), "r") as f:
         colors = json.load(f)
 
     text_widget.config(

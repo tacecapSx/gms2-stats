@@ -61,7 +61,16 @@ def load(filename):
             "Step_1": "Begin Step",
             "Step_2": "End Step",
             "Draw_0": "Draw",
-            "Destroy_0": "Destroy"
+            "Draw_64": "Draw GUI",
+            "Draw_65": "Window Resize",
+            "Draw_72": "Draw Begin",
+            "Draw_73": "Draw End",
+            "Draw_74": "Draw GUI Begin",
+            "Draw_75": "Draw GUI End",
+            "Draw_76": "Pre-Draw",
+            "Draw_77": "Post-Draw",
+            "Destroy_0": "Destroy",
+            "CleanUp_0": "Cleanup"
         }
 
         if not name in event_names:

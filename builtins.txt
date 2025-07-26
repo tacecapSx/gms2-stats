@@ -302,6 +302,7 @@ false
 noone
 undefined
 pointer_null
+infinity
 c_aqua
 c_black
 c_blue

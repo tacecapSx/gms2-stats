@@ -273,7 +273,8 @@ def launch():
     text_widget.config(
         bg=colors["background"], 
         fg=colors["default_text"], 
-        insertbackground=colors["cursor"]
+        insertbackground=colors["cursor"],
+        selectbackground=colors["selectbackground"]
     )
 
     for tag, color in colors["syntax"].items():

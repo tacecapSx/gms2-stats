@@ -37,7 +37,7 @@ def load(filename):
     def get_asset_path(dirpath, filenames):
         for f in filenames:
             if f.endswith(".yy"):
-                with open(os.path.join(dirpath, f), 'r') as yy:
+                with open(os.path.join(dirpath, f), 'r', encoding="utf-8") as yy:
                     json_data = json.loads(remove_trailing_commas(yy.read()))
 
         path = json_data["parent"]["path"][:-3].split("/")[2:]
@@ -110,7 +110,7 @@ def load(filename):
     roomdir = os.path.join(project_dir, 'rooms')
 
     for roomname in os.listdir(roomdir):
-        with open(f"{os.path.join(os.path.join(roomdir, roomname), roomname)}.yy", 'r') as f:
+        with open(f"{os.path.join(os.path.join(roomdir, roomname), roomname)}.yy", 'r', encoding="utf-8") as f:
             j = json.loads(remove_trailing_commas(f.read()))
 
             for inst in j["instanceCreationOrder"]:
@@ -159,7 +159,7 @@ def load(filename):
                 full_path = os.path.join(dirpath, f)
                 asset_path = get_asset_path(dirpath, filenames)
                 
-                with open(full_path, 'r') as fp:
+                with open(full_path, 'r', encoding="utf-8") as fp:
                     content = fp.readlines()
                     line_count = len(content)
                     this_file = GMFile(content, line_count)
@@ -191,8 +191,8 @@ def load_file(filename) -> LoadResult:
             load_info = load(filename)
 
             return LoadResult(info=(project_name, *load_info))
-        except:
-            return LoadResult(error="Error reading GameMaker Studio 2 Project information. Not a valid project?")
+        except Exception as e:
+            return LoadResult(error=f"Error reading GameMaker Studio 2 Project information. Details: {e}")
     else:
         return LoadResult(error=f'Path "{filename}" is not a valid GameMaker 2 project file.')
 

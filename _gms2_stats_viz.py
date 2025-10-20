@@ -11,9 +11,9 @@ from _gms2_stats_io import load_file
 
 class SyntaxInfo:
     def __init__(self, resources, scripts, enum_names, enum_entries, macros, globalvars):
-        with open(local_resource_path("builtins.txt"), 'r') as f:
+        with open(local_resource_path("builtins.txt"), 'r', encoding="utf-8") as f:
             self.builtins = [line.rstrip('\n') for line in f.readlines()]
-        with open(local_resource_path("functions.txt"), 'r') as f:
+        with open(local_resource_path("functions.txt"), 'r', encoding="utf-8") as f:
             self.functions = [line.rstrip('\n') for line in f.readlines()]
         
         self.resources = resources
@@ -267,7 +267,7 @@ def launch():
     # Text widget config
     text_widget.config(font=("Consolas", 10))
     # Load color config from JSON
-    with open(local_resource_path("styles.json"), "r") as f:
+    with open(local_resource_path("styles.json"), "r", encoding="utf-8") as f:
         colors = json.load(f)
 
     text_widget.config(

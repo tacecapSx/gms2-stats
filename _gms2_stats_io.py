@@ -161,7 +161,7 @@ def load(filename):
                 
                 with open(full_path, 'r', encoding="utf-8") as fp:
                     content = fp.readlines()
-                    line_count = len(content)
+                    line_count = len([l for l in content if not l.isspace()])
                     this_file = GMFile(content, line_count)
 
                     file_name = os.path.splitext(os.path.basename(f))[0]

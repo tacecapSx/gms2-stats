@@ -342,6 +342,9 @@ def launch():
         show_content(ax)
 
     def on_item_selected(event):
+        if not TREE.selection():
+            return  # No item selected, do nothing
+
         # Get the selected item
         selected_item = TREE.selection()[0]  # Get the first (and only) item from the selection
         # Retrieve the item's text (the folder or file name)

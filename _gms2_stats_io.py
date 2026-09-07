@@ -28,20 +28,34 @@ def local_resource_path(relative_path):
         exe = os.path.abspath(__file__)
     return os.path.join(os.path.dirname(exe), relative_path)
 
-def load(filename):
+def load(filename,ignore_extensions):
     def remove_trailing_commas(json_str):
         # This regex will match trailing commas in dictionaries and lists
         json_str = re.sub(r',\s*([\]}])', r'\1', json_str)
         return json_str
-    
-    def get_asset_path(dirpath, filenames):
+
+    def is_extension_folder(dirpath, filenames):
+        if not ignore_extensions:
+            for f in filenames:
+                if f.endswith(".yy"):
+                    try:
+                        with open(os.path.join(dirpath, f), 'r', encoding="utf-8") as yy:
+                            json_data = json.loads(remove_trailing_commas(yy.read()))
+                    except (json.JSONDecodeError, OSError):
+                        continue
+                    if json_data.get("resourceType") == "GMExtension" or "$GMExtension" in json_data:
+                        return True
+        return False
+
+    def get_yy_json(dirpath, filenames):
         for f in filenames:
             if f.endswith(".yy"):
                 with open(os.path.join(dirpath, f), 'r', encoding="utf-8") as yy:
-                    json_data = json.loads(remove_trailing_commas(yy.read()))
-
+                    return json.loads(remove_trailing_commas(yy.read()))
+        return None
+    
+    def get_asset_path(json_data):
         path = json_data["parent"]["path"][:-3].split("/")[2:]
-
         return path
 
     def update(files, path, value):
@@ -152,21 +166,37 @@ def load(filename):
             
             enum_entries.extend(enum_values)
 
+    excluded_prefixes = []
+    extensions_dir = os.path.join(project_dir, "extensions")
+    if ignore_extensions and os.path.exists(extensions_dir):
+        for dirpath, dirnames, filenames in os.walk(extensions_dir):
+            json_data = get_yy_json(dirpath, filenames)
+            if json_data and (json_data.get("resourceType") == "GMExtension" or "$GMExtension" in json_data):
+                parent_path = json_data["parent"]["path"]  # e.g. "folders/Photon.yy"
+                prefix = parent_path[:-3] if parent_path.endswith(".yy") else parent_path
+                excluded_prefixes.append(prefix)
+
     # Load code
     for dirpath, dirnames, filenames in os.walk(project_dir):
         for f in filenames:
             if f.endswith(".gml") or f.endswith(".vsh") or f.endswith(".fsh"):
                 full_path = os.path.join(dirpath, f)
-                asset_path = get_asset_path(dirpath, filenames)
-                
+                json_data = get_yy_json(dirpath, filenames)
+                if json_data is None:
+                    continue
+
+                parent_path = json_data["parent"]["path"]
+                if any(parent_path == p + ".yy" or parent_path.startswith(p + "/") for p in excluded_prefixes):
+                    continue 
+
+                asset_path = get_asset_path(json_data)
+
                 with open(full_path, 'r', encoding="utf-8") as fp:
                     content = fp.readlines()
                     line_count = len([l for l in content if not l.isspace()])
                     this_file = GMFile(content, line_count)
-
                     file_name = os.path.splitext(os.path.basename(f))[0]
                     file_owner = os.path.basename(dirpath)
-
                     store_content_syntax(this_file.content)
 
                 if "\\objects\\" in dirpath:
@@ -180,7 +210,7 @@ def load(filename):
     
     return (files, list(resources), list(scripts), enum_names, enum_entries, macros, globalvars)
 
-def load_file(filename) -> LoadResult:
+def load_file(filename, ignore_extensions) -> LoadResult:
     if os.path.exists(filename):
         if not filename.endswith(".yyp"):
             return LoadResult(error="Not a GameMaker Studio 2 Project file (.yyp)")
@@ -188,7 +218,7 @@ def load_file(filename) -> LoadResult:
         project_name = os.path.splitext(os.path.basename(filename))[0]
         
         try:
-            load_info = load(filename)
+            load_info = load(filename, ignore_extensions)
 
             return LoadResult(info=(project_name, *load_info))
         except Exception as e:

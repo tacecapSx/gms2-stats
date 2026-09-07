@@ -178,6 +178,8 @@ def launch():
     # Set up the menu bar
     menu_bar = tk.Menu(root)
 
+    ignore_extensions = tk.BooleanVar(root, value=True)
+
     # File menu
     def open_file():
         file_path = filedialog.askopenfilename(
@@ -185,7 +187,7 @@ def launch():
             filetypes=[("GameMaker Studio 2 Project File", "*.yyp")]
         )
         if file_path:
-            result = load_file(file_path)
+            result = load_file(file_path,ignore_extensions.get())
 
             if result.ok():
                 global PROJECT_FILE
@@ -203,7 +205,7 @@ def launch():
         if PROJECT_FILE == "":
             messagebox.showinfo("Info", "No project loaded")
         else:
-            result = load_file(PROJECT_FILE)
+            result = load_file(PROJECT_FILE, ignore_extensions.get())
 
             if result.ok():
                 project_name, files, *syntax_info = result.info
@@ -220,6 +222,22 @@ def launch():
 
     # Add the File menu to the menu bar
     menu_bar.add_cascade(label="File", menu=file_menu)
+
+    # Settings Button Menu
+    options_menu = tk.Menu(menu_bar, tearoff=0)
+
+    def on_ignore_extensions_changed():
+        reload_file()
+
+    options_menu.add_checkbutton(
+        label="Ignore Extensions",
+        variable=ignore_extensions,
+        onvalue=True,
+        offvalue=False,
+        command=on_ignore_extensions_changed
+    )
+
+    menu_bar.add_cascade(label="Options", menu=options_menu)
 
     # Add the menu bar to the root window
     root.config(menu=menu_bar)

@@ -4,9 +4,10 @@ import re
 import sys
 
 class GMFile:
-    def __init__(self, content, line_count):
+    def __init__(self, content, line_count, extension):
         self.content = "".join([l.replace("\t", "    ") for l in content])
         self.line_count = line_count
+        self.extension = extension
     
     def __repr__(self):
         return f"GMFile({self.content}..., {self.line_count})"
@@ -179,7 +180,9 @@ def load(filename,ignore_extensions):
     # Load code
     for dirpath, dirnames, filenames in os.walk(project_dir):
         for f in filenames:
-            if f.endswith(".gml") or f.endswith(".vsh") or f.endswith(".fsh"):
+            extension = os.path.splitext(os.path.basename(f))[1]
+
+            if extension in [".gml", ".vsh", ".fsh"]:
                 full_path = os.path.join(dirpath, f)
                 json_data = get_yy_json(dirpath, filenames)
                 if json_data is None:
@@ -194,7 +197,7 @@ def load(filename,ignore_extensions):
                 with open(full_path, 'r', encoding="utf-8") as fp:
                     content = fp.readlines()
                     line_count = len([l for l in content if not l.isspace()])
-                    this_file = GMFile(content, line_count)
+                    this_file = GMFile(content, line_count, extension)
                     file_name = os.path.splitext(os.path.basename(f))[0]
                     file_owner = os.path.basename(dirpath)
                     store_content_syntax(this_file.content)

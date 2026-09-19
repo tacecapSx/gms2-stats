@@ -2,7 +2,9 @@
 A tool to view line count statistics and syntax-highlighed scripts of GameMaker Studio 2 projects.
 
 ## Dependencies
-**matplotlib** is required for this program. Install it with:
+You can skip this step if you are planning to run the program with the release executable `gms2_stats.exe`.
+
+Otherwise, **matplotlib** is required. Install it with:
 ```
 pip install matplotlib
 ```
@@ -21,4 +23,4 @@ Or, use the release executable `gms2_stats.exe`.
 You can freely edit `styles.json` to set up your own syntax highlighting colours for code display.
 
 ## Disclaimer
-This program is tested and verified to work with the newest GameMaker Studio 2 project format at time of writing (v2024.13.1.193), and may not work with earlier or later versions.
+This program is tested and verified to work with the newest GameMaker Studio 2 project format at time of writing (v2026.0.0.16), and may not work with earlier or later versions.

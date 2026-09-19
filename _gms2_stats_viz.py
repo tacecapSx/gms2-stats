@@ -1,21 +1,13 @@
 import tkinter as tk
-from tkinter import ttk
-from tkinter import filedialog
-from tkinter import messagebox
+from tkinter import ttk, filedialog, messagebox, Text
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import re
 import json
-from _gms2_stats_io import local_resource_path
-from _gms2_stats_io import load_file
+from _gms2_stats_io import local_resource_path, load_file, GMFile
 
 class SyntaxInfo:
     def __init__(self, resources, scripts, enum_names, enum_entries, macros, globalvars):
-        with open(local_resource_path("builtins.txt"), 'r', encoding="utf-8") as f:
-            self.builtins = [line.rstrip('\n') for line in f.readlines()]
-        with open(local_resource_path("functions.txt"), 'r', encoding="utf-8") as f:
-            self.functions = [line.rstrip('\n') for line in f.readlines()]
-        
         self.resources = resources
         self.scripts = scripts
         self.enum_names = enum_names
@@ -27,9 +19,10 @@ PROJECT_FILE = ""
 PROJECT_NAME = "No project"
 FILES = {}
 SYNTAX = None
+LANGUAGE_STYLES = None
 
-def plot_code(text_widget, gmfile):
-    # Regex-based simple highlighter
+def plot_code(text_widget: Text, gmfile: GMFile):
+    # Regex-based highlighter
     def apply_syntax_highlighting():
         def apply_tag(tag, match):
             start = f"1.0 + {match.start()} chars"
@@ -38,11 +31,39 @@ def plot_code(text_widget, gmfile):
 
         code = text_widget.get("1.0", tk.END)
 
-        global SYNTAX
+        global LANGUAGE_STYLES
 
+        # Find syntax type of GMFile
+        for language in LANGUAGE_STYLES.values():
+            if gmfile.extension in language["extensions"]:
+                break
+        
+        style = language["style"]
+
+        # Update basic colours
+        text_widget.config(font=("Consolas", 10, ))
+
+        text_widget.config(
+            bg=style["background"], 
+            fg=style["default_text"]["colour"],
+            font=("Consolas", 10, style["default_text"]["styling"]),
+            insertbackground=style["cursor"],
+            selectbackground=style["selectbackground"],
+        )
+
+        # Set colours of this style's syntax categories
+        for tag, font in style["syntax"].items():
+            text_widget.tag_config(tag, foreground=font["colour"], font=("Consolas", 10, font["styling"]))
+
+        # Unique syntax features
+        for feature_type, expressions in language["features"].items():
+            for match in re.finditer(r"(?<!\w)(" + "|".join(map(re.escape, expressions)) + r")(?!\w)", code):
+                apply_tag(feature_type, match)
+
+        # Project-specific syntax highlights
+        global SYNTAX
+        
         syntax_map = {
-            "function": SYNTAX.functions,
-            "builtin": SYNTAX.builtins,
             "resource": SYNTAX.resources,
             "script": SYNTAX.scripts,
             "enum_name": SYNTAX.enum_names,
@@ -52,39 +73,17 @@ def plot_code(text_widget, gmfile):
         }
 
         for tag_name, syntax_words in syntax_map.items():
-            if syntax_words:  # skip empty lists to avoid pointless regex
-                pattern = r"\b(" + "|".join(map(re.escape, syntax_words)) + r")\b"
+            if syntax_words and tag_name in style["syntax"].keys():
+                pattern = r"(?<!\w)(" + "|".join(map(re.escape, syntax_words)) + r")(?!\w)"
                 for match in re.finditer(pattern, code):
                     apply_tag(tag_name, match)
-
-        # Keywords
-        keywords = [
-            "var", "globalvar",
-            "enum",
-            "discard", "attribute", "varying", "uniform", "const", "in", "out", "inout",
-            "float", "int", "void", "bool",
-            "lowp", "mediump", "highp", "precision", "invariant",
-            "mat2", "mat3", "mat4",
-            "vec2", "vec3", "vec4",
-            "ivec2", "ivec3", "ivec4",
-            "bvec2", "bvec3", "bvec4",
-            "sampler2D", "samplerCube", "struct",
-            "function", "break", "continue", "return", "do", "if", "else", "for", "while", "switch", "case", "default", "until", "with", "try", "catch", "new", "and", "or", "not", "delete"
-        ]
-
-        for match in re.finditer(r"\b(" + "|".join(map(re.escape, keywords)) + r")\b", code):
-            apply_tag("keyword", match)
         
         # Curly brackets
         for match in re.finditer(r"(\{|\})", code):
             apply_tag("keyword", match)
-        
-        # Macros with # symbol
-        for match in re.finditer(r"(\#macro)\b", code):
-            apply_tag("keyword", match)
 
         # Values
-        for match in re.finditer(r"(?<![A-Za-z_])(0x[0-9a-fA-F]+|\$[0-9a-fA-F]+|#[0-9a-fA-F]+|b[01]+|\d+\.?\d*|\.\d+)\b", code):
+        for match in re.finditer(r"(?<![A-Za-z_])(?:(?:0x|0b|#|\$)[0-9a-fA-F]+|\d+\.+\d+|\.\d+|\d+\.|\d+)(?![\d.])", code):
             apply_tag("value", match)
 
         # Strings
@@ -282,21 +281,11 @@ def launch():
     text_widget = tk.Text(text_frame, wrap=tk.WORD)
     text_widget.pack(fill=tk.BOTH, expand=True)
 
-    # Text widget config
-    text_widget.config(font=("Consolas", 10))
-    # Load color config from JSON
+    # Load styles config from JSON
+    global LANGUAGE_STYLES
+
     with open(local_resource_path("styles.json"), "r", encoding="utf-8") as f:
-        colors = json.load(f)
-
-    text_widget.config(
-        bg=colors["background"], 
-        fg=colors["default_text"], 
-        insertbackground=colors["cursor"],
-        selectbackground=colors["selectbackground"]
-    )
-
-    for tag, color in colors["syntax"].items():
-        text_widget.tag_config(tag, foreground=color)
+        LANGUAGE_STYLES = json.load(f)
 
     def show_content(ax, path=""):
         if not FILES: # No file loaded
